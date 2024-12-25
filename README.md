@@ -1,7 +1,5 @@
 # STAT5261: Statistical Method for Finance Final Project
 
-## Group 13: Yang She (ys3852) & Danyang Hu (dh3222)
-
 In this project, we analyzed 12 different stocks using Python and R codes, and wrote a project report. Below are the files and folders we handed in:
 
 ### 1. Daily & Monthly Folders
