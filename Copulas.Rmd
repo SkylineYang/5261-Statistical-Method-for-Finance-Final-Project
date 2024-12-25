@@ -1,0 +1,113 @@
+---
+title: "Copulas"
+author: "Yang She ys3852"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+## 2.7 Copulas
+
+```{r}
+library(copula)
+library(ggplot2)
+
+data <- read.csv("Daily.csv", row.names = "Date")
+data <- subset(data, select=-SP500)
+
+print(head(data))
+```
+
+```{r}
+analyze_copula <- function(col1, col2, data) {
+  x <- data[[col1]]
+  y <- data[[col2]]
+  
+  u <- rank(x) / (length(x) + 1)
+  v <- rank(y) / (length(y) + 1)
+  data_copula <- data.frame(u = u, v = v)
+  
+  copula_models <- list(
+    "Gaussian" = normalCopula(dim = 2),
+    "Clayton" = claytonCopula(dim = 2),
+    "Gumbel" = gumbelCopula(dim = 2),
+    "Frank" = frankCopula(dim = 2)
+  )
+  
+  fit_results <- lapply(copula_models, function(cop) {
+    tryCatch(
+      fitCopula(cop, data_copula, method = "ml"),
+      error = function(e) NULL
+    )
+  })
+  
+  aic_values <- sapply(fit_results, function(fit) if (!is.null(fit)) AIC(fit) else Inf)
+  
+  best_model <- names(aic_values)[which.min(aic_values)]
+  
+  list(
+    col1 = col1,
+    col2 = col2,
+    best_model = best_model,
+    best_fit = fit_results[[best_model]],
+    aic_values = aic_values
+  )
+}
+```
+
+```{r}
+library(MASS)
+library(fGarch)
+```
+
+
+```{r}
+col_names <- colnames(data)
+
+results <- list()
+
+for (i in 1:(ncol(data) - 1)) {
+  for (j in (i + 1):ncol(data)) {
+    result <- analyze_copula(col_names[i], col_names[j], data)
+    results <- append(results, list(result))
+    cat("Analyzed:", col_names[i], "and", col_names[j], "- Best Model:", result$best_model, "\n")
+  }
+}
+```
+
+```{r}
+plot_copula <- function(result, data) {
+  col1 <- result$col1
+  col2 <- result$col2
+  
+  x <- data[[col1]]
+  y <- data[[col2]]
+  best_fit <- result$best_fit
+  
+  u <- rank(x) / (length(x) + 1)
+  v <- rank(y) / (length(y) + 1)
+  data_copula <- data.frame(u = u, v = v)
+  
+  sim_data <- rCopula(nrow(data), best_fit@copula)
+  
+  p1 <- ggplot(data_copula, aes(x = u, y = v)) +
+    geom_point(alpha = 0.7) +
+    labs(title = paste("Original Data:", col1, "vs", col2)) +
+    theme_minimal()
+  
+  p2 <- ggplot(as.data.frame(sim_data), aes(x = V1, y = V2)) +
+    geom_point(alpha = 0.7, color = "blue") +
+    labs(title = paste("Simulated Data (Best Model:", result$best_model, ")")) +
+    theme_minimal()
+  
+  library(gridExtra)
+  grid.arrange(p1, p2, nrow = 1)
+}
+
+for (result in results) {
+  plot_copula(result, data)
+}
+
+```
+
+
+
